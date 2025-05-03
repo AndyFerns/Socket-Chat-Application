@@ -3,12 +3,14 @@ package chat.server;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
 public class ChatServer {
     private static final int PORT = 12345;
-    static Set<ClientHandler> clients = new HashSet<>();
+    public static Set<ClientHandler> clients = Collections.synchronizedSet(new HashSet<>());
+
 
     public static void main(String[] args) {
         System.out.println("Server started on port " + PORT);
