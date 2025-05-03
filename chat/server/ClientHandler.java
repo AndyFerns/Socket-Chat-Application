@@ -2,8 +2,7 @@ package chat.server;
 
 import java.io.*;
 import java.net.Socket;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
+import java.util.Set;
 
 public class ClientHandler implements Runnable {
     private Socket socket;
@@ -11,42 +10,69 @@ public class ClientHandler implements Runnable {
     private PrintWriter out;
     private String username;
 
-    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
-
     public ClientHandler(Socket socket) {
         this.socket = socket;
     }
 
+    @Override
     public void run() {
         try {
+            // Setup I/O
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
 
-            // NEW: First line is username
-            this.username = in.readLine();
-
-            ChatServer.broadcast("[" + TIME_FORMAT.format(LocalTime.now()) + "] " + username + " has joined the chat.");
-
-            String line;
-            while ((line = in.readLine()) != null) {
-                String timestamp = "[" + TIME_FORMAT.format(LocalTime.now()) + "]";
-                ChatServer.broadcast(timestamp + " " + username + ": " + line);
+            // Get username
+            username = in.readLine();
+            synchronized (ChatServer.clients) {
+                ChatServer.clients.add(this);
+                broadcastUserList(); // Send updated user list
             }
 
+            ChatServer.broadcast("[Server] " + username + " has joined the chat.");
+
+            // Message handling loop
+            String message;
+            while ((message = in.readLine()) != null) {
+                ChatServer.broadcast("[" + username + "] " + message);
+            }
         } catch (IOException e) {
-            System.err.println("Connection error with client.");
+            System.out.println(username + " disconnected unexpectedly.");
         } finally {
             try {
                 socket.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            ChatServer.clients.remove(this);
-            ChatServer.broadcast("[" + TIME_FORMAT.format(LocalTime.now()) + "] " + username + " has left the chat.");
+
+            synchronized (ChatServer.clients) {
+                ChatServer.clients.remove(this);
+                ChatServer.broadcast("[Server] " + username + " has left the chat.");
+                broadcastUserList(); // Update list after user leaves
+            }
         }
     }
 
     public void sendMessage(String message) {
         out.println(message);
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    // Broadcasts user list to all clients
+    private void broadcastUserList() {
+        StringBuilder list = new StringBuilder("[USERLIST]");
+        for (ClientHandler client : ChatServer.clients) {
+            list.append(client.getUsername()).append(",");
+        }
+        // Remove trailing comma
+        if (list.charAt(list.length() - 1) == ',') {
+            list.setLength(list.length() - 1);
+        }
+
+        for (ClientHandler client : ChatServer.clients) {
+            client.sendMessage(list.toString());
+        }
     }
 }

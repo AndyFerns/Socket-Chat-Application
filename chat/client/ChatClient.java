@@ -2,9 +2,11 @@ package chat.client;
 
 import chat.client.ChatGUI;
 
+import javax.swing.*;
 import java.io.*;
-import javax.swing.JOptionPane;
 import java.net.Socket;
+import java.util.Arrays;
+import java.util.List;
 
 public class ChatClient {
     public static void main(String[] args) {
@@ -13,20 +15,35 @@ public class ChatClient {
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-            // NEW: Ask for username
+            // Prompt for username
             String username = JOptionPane.showInputDialog("Enter your username:");
-            out.println(username);  // Send username to server
+            if (username == null || username.trim().isEmpty()) {
+                JOptionPane.showMessageDialog(null, "Username cannot be empty.");
+                socket.close();
+                return;
+            }
+            out.println(username);
 
             ChatGUI gui = new ChatGUI(out);
             gui.setVisible(true);
 
+            // Read messages from server
             String line;
             while ((line = in.readLine()) != null) {
-                gui.appendMessage(line); // Display server messages with timestamp + username
+                if (line.startsWith("[USERLIST]")) {
+                    // Parse user list and update sidebar
+                    String csv = line.substring(11); // after [USERLIST]
+                    List<String> users = Arrays.asList(csv.split(","));
+                    gui.updateUserList(users);
+                } else {
+                    gui.appendMessage(line); // Regular chat message
+                }
             }
 
             socket.close();
+            
         } catch (IOException e) {
+            JOptionPane.showMessageDialog(null, "Could not connect to server: " + e.getMessage());
             e.printStackTrace();
         }
     }
