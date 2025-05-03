@@ -16,7 +16,7 @@ public class ChatGUI extends JFrame {
     public ChatGUI(PrintWriter out) {
         this.out = out;
 
-        setTitle("Java Chat - Discord Style");
+        setTitle("Chat App");
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
